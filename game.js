@@ -1,22 +1,29 @@
 var firstScript = document.getElementsByTagName('script')[0];
+
 phaser = document.createElement('script');
 phaser.src = 'https://cdnjs.cloudflare.com/ajax/libs/phaser/2.4.4/phaser.min.js';
-phaser.onload = function () {
-  // do stuff with your dynamically loaded script
-  //snowStorm.snowColor = '#99ccff';
-};
+firstScript.parentNode.insertBefore(phaser, firstScript);
+
 html2canvas = document.createElement('script');
 html2canvas.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js';
-html2canvas.onload = function () {
-  // do stuff with your dynamically loaded script
-  //snowStorm.snowColor = '#99ccff';
-};
-firstScript.parentNode.insertBefore(phaser, firstScript);
 firstScript.parentNode.insertBefore(html2canvas, firstScript);
+
+var gameCode = "";
+window.addEventListener("keydown",function(e) {
+  gameCode = gameCode+String.fromCharCode(e.keyCode || e.which);
+  if(/PLAY$/.test(gameCode)) {
+    window.removeEventListener("keydown",arguments.callee);
+    html2canvas(document.body, {
+      onrendered: function(canvas) {
+        initGame(canvas.toDataURL());
+      }
+    });
+  }
+}, false);
 
 function initGame(screenshot) {
   window.addEventListener("keyup", function(e) {
-    if (e.keyCode == 27) { 
+    if (e.keyCode == 27) {
       location.reload();
     }
   }, false);
@@ -50,11 +57,10 @@ function initGame(screenshot) {
   var divisionX = document.body.offsetWidth / 20;
   var divisionY = document.body.offsetHeight / 20;
 
-  var s;
-
   var mainState = {
     preload: function() {
-      game.load.atlas('breakout', '/breakout.png', '/breakout.json');
+      game.load.crossOrigin = 'Anonymous';
+      game.load.atlas('breakout', 'https://s3-us-west-2.amazonaws.com/demos92/game-in-page/breakout.png', 'https://s3-us-west-2.amazonaws.com/demos92/game-in-page/breakout.json');
       game.load.spritesheet('page', screenshot, divisionX, divisionY);
     },
     create: function() {
@@ -115,8 +121,6 @@ function initGame(screenshot) {
 
     },
     update: function() {
-      //  Fun, but a little sea-sick inducing :) Uncomment if you like!
-      // s.tilePosition.x += (game.input.speed.x / 2);
       paddle.x = game.input.x;
 
       if (paddle.x < 24) {
@@ -131,20 +135,18 @@ function initGame(screenshot) {
         game.physics.arcade.collide(ball, paddle, ballHitPaddle, null, this);
         game.physics.arcade.collide(ball, bricks, ballHitBrick, null, this);
       }
-
-      game.physics.arcade.collide(ball, bricks);
     }
   }
 
   function releaseBall () {
     if (ballOnPaddle) {
-        ballOnPaddle = false;
-        ball.body.velocity.y = -300;
-        ball.body.velocity.x = -75;
-        ball.animations.play('spin');
-        introText.visible = false;
-        introText2.visible = false;
-      }
+      ballOnPaddle = false;
+      ball.body.velocity.y = -300;
+      ball.body.velocity.x = -75;
+      ball.animations.play('spin');
+      introText.visible = false;
+      introText2.visible = false;
+    }
   }
 
   function ballLost () {
@@ -152,15 +154,15 @@ function initGame(screenshot) {
     livesText.text = 'lives: ' + lives;
 
     if (lives === 0) {
-        gameOver();
-        setTimeout(function() {
-          location.reload();
-        }, 1000);
-      } else {
-          ballOnPaddle = true;
-          ball.reset(paddle.body.x + 16, paddle.y - 16);
-          ball.animations.stop();
-        }
+      gameOver();
+      setTimeout(function() {
+        location.reload();
+      }, 1000);
+    } else {
+      ballOnPaddle = true;
+      ball.reset(paddle.body.x + 16, paddle.y - 16);
+      ball.animations.stop();
+    }
   }
 
   function gameOver () {
@@ -190,58 +192,27 @@ function initGame(screenshot) {
         ball.animations.stop();
 
         //  And bring the bricks back from the dead :)
-       bricks.callAll('revive');
+        bricks.callAll('revive');
       }
   }
 
   function ballHitPaddle (_ball, _paddle) {
     var diff = 0;
     if (_ball.x < _paddle.x) {
-        //  Ball is on the left-hand side of the paddle
-        diff = _paddle.x - _ball.x;
-        _ball.body.velocity.x = (-10 * diff);
-      } else if (_ball.x > _paddle.x) {
-          //  Ball is on the right-hand side of the paddle
-          diff = _ball.x -_paddle.x;
-          _ball.body.velocity.x = (10 * diff);
-        } else {
-            //  Ball is perfectly in the middle
-            //  Add a little random X to stop it bouncing straight up!
-            _ball.body.velocity.x = 2 + Math.random() * 8;
-          }
+      //  Ball is on the left-hand side of the paddle
+      diff = _paddle.x - _ball.x;
+      _ball.body.velocity.x = (-10 * diff);
+    } else if (_ball.x > _paddle.x) {
+      //  Ball is on the right-hand side of the paddle
+      diff = _ball.x -_paddle.x;
+      _ball.body.velocity.x = (10 * diff);
+    } else {
+      //  Ball is perfectly in the middle
+      //  Add a little random X to stop it bouncing straight up!
+      _ball.body.velocity.x = 2 + Math.random() * 8;
+    }
   }
 
   game.state.add('main', mainState);
   game.state.start('main');
-
-  function resizeGame() {
-    var height = document.body.offsetHeight;
-    var width = document.body.offsetWidth;
-
-    game.width = width;
-    game.height = height;
-
-    if (game.renderType === Phaser.WEBGL) {
-        game.renderer.resize(width, height);
-      }
-  }
-  window.addEventListener('resize', function() {
-    resizeGame();
-  });
-  window.onscroll = function() {
-    node.style.top = window.scrollY + 'px';
-  };
 }
-
-var gameCode = "";
-window.addEventListener("keydown",function(e) {
-  gameCode = (gameCode+String.fromCharCode(e.keyCode || e.which)).substr(-4);
-  if(gameCode == "GAME") {
-    window.removeEventListener("keydown",arguments.callee);
-    html2canvas(document.body, {
-      onrendered: function(canvas) {
-        initGame(canvas.toDataURL());
-      }
-    });
-  }
-}, false);
